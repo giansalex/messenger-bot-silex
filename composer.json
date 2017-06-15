@@ -23,7 +23,8 @@
         "symfony/twig-bridge": "~2.8|^3.0",
         "symfony/validator": "~2.8|^3.0",
         "monolog/monolog": "^1.22",
-        "nategood/httpful": "^0.2.20"
+        "nategood/httpful": "^0.2.20",
+        "symfony/serializer": "^3.3"
     },
     "autoload": {
         "psr-0": { "": "src/" }

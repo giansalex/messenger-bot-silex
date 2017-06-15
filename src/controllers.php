@@ -5,6 +5,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 //Request::setTrustedProxies(array('127.0.0.1'));
 
+/**@var \Silex\Application $app*/
 $app->get('/', function () use ($app) {
     return $app['twig']->render('index.html.twig', array());
 })
@@ -14,10 +15,13 @@ $app->get('/', function () use ($app) {
 $app->get('/webhook', function (Request $request) use ($app) {
     $q = $request->query;
     if ($q->get('hub.mode') === 'subscribe' &&
-        $q->get('hub.verify_token') === $app['VERIFY_TOKEN']) {
+        $q->get('hub.verify_token') === $app['VERIFY_TOKEN']
+    ) {
+        $app['fblog']->info('Validating webhook');
         return $q->get('hub.challenge');
     } else {
-        $app->abort(403, 'Failed validation. Make sure the validation tokens match.');
+        $app['fblog']->error('Failed validation. Make sure the validation tokens match.');
+        $app->abort(403);
     }
 });
 
@@ -31,11 +35,11 @@ $app->post('/webhook', function (Request $request) use ($app) {
             $timeOfEvent = $entry->time;
             foreach ($entry->messaging as $event) {
                 if ($event->message) {
-                    //receivedMessage(event);
+                    receivedMessage($event);
                 } else if ($event->postback) {
-                    //receivedPostback(event);
+                    receivedPostback($event);
                 } else {
-                    //console.log("Webhook received unknown event: ", $event);
+                    $app['fblog']->warning('Webhook received unknown event: ', [$event]);
                 }
             }
         }
@@ -65,15 +69,18 @@ $app->error(function (\Exception $e, Request $request, $code) use ($app) {
 });
 
 function receivedMessage($event) {
+    global $app;
     $senderID = $event->sender->id;
     $recipientID = $event->recipient->id;
     $timeOfMessage = $event->timestamp;
     $message = $event->message;
 
-    //console.log("Received message for user %d and page %d at %d with message:", senderID, recipientID, timeOfMessage);
-    //console.log(JSON.stringify(message));
+    $app['fblog']->info(sprintf('Received message for user %d and page %d at %d with message:',
+        $senderID, $recipientID, $timeOfMessage));
 
-    $messageId = $message->mid;
+    $app['fblog']->info($app['serializer']->serialize($message, 'json'));
+
+    //$messageId = $message->mid;
 
     $messageText = $message->text;
     $messageAttachments = $message->attachments;
@@ -95,6 +102,8 @@ function receivedMessage($event) {
 }
 
 function receivedPostback($event) {
+    global $app;
+
     $senderID = $event->sender->id;
     $recipientID = $event->recipient->id;
     $timeOfPostback = $event->timestamp;
@@ -103,7 +112,8 @@ function receivedPostback($event) {
     // button for Structured Messages.
     $payload = $event->postback->payload;
 
-    //console.log("Received postback for user %d and page %d with payload '%s' " + "at %d", senderID, recipientID, payload, timeOfPostback);
+    $app['fblog']->info(sprintf("Received postback for user %d and page %d with payload '%s' at %d",
+        $senderID, $recipientID, $payload, $timeOfPostback));
 
     // When a postback is called, we'll send a message back to the sender to
     // let them know it was successful
@@ -178,8 +188,8 @@ function callSendAPI($messageData) {
         $body = json_decode($response->raw_body);
         $recipientId = $body->recipient_id;
         $messageId = $body->message_id;
-        //console.log("Successfully sent generic message with id %s to recipient %s",messageId, recipientId);
+        $app['fblog']->info(sprintf('Successfully sent generic message with id %s to recipient %s', $messageId, $recipientId));
     } else {
-        // Error
+        $app['fblog']->error('Unable to send message.');
     }
 }
