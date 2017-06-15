@@ -14,11 +14,11 @@ $app->get('/', function () use ($app) {
 
 $app->get('/webhook', function (Request $request) use ($app) {
     $q = $request->query;
-    if ($q->get('hub.mode') === 'subscribe' &&
-        $q->get('hub.verify_token') === $app['VERIFY_TOKEN']
+    if ($q->get('hub_mode') === 'subscribe' &&
+        $q->get('hub_verify_token') === $app['VERIFY_TOKEN']
     ) {
         $app['fblog']->info('Validating webhook');
-        return $q->get('hub.challenge');
+        return $q->get('hub_challenge');
     } else {
         $app['fblog']->error('Failed validation. Make sure the validation tokens match.');
         $app->abort(403);
@@ -178,7 +178,7 @@ function sendGenericMessage($recipientId) {
 }
 function callSendAPI($messageData) {
     global $app;
-    $uri = 'https://graph.facebook.com/v2.6/me/messages?access_token' . $app['PAGE_ACCESS_TOKEN'];
+    $uri = 'https://graph.facebook.com/v2.6/me/messages?access_token=' . $app['PAGE_ACCESS_TOKEN'];
     $response = \Httpful\Request::post($uri)
         ->addHeader('Content-Type', 'application/json')
         ->body(json_encode($messageData))
